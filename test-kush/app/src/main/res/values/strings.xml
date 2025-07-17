@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Sangeet</string>
+    <string name="title_activity_sign_up">SignUpActivity</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_add_product">AddProductActivity</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="title_activity_dashboard">DashboardActivity</string>
+    <string name="title_activity_home">HomeActivity</string>
+    <string name="title_activity_register">RegisterActivity</string>
+    <string name="title_activity_splash_screen">SplashScreen</string>
+    <string name="title_activity_library">LibraryActivity</string>
+    <string name="title_activity_menu">MenuActivity</string>
+    <string name="title_activity_playing_now">PlayingNowActivity</string>
+    <string name="title_activity_playlist">PlaylistActivity</string>
+    <string name="title_activity_search">SearchActivity</string>
+    <string name="title_activity_registerpage">RegisterpageActivity</string>
+    <string name="title_activity_login_dactivity">LoginDActivity</string>
+    <string name="title_activity_register_dactivity">RegisterDActivity</string>
+    <string name="title_activity_edit_profile">EditProfileActivity</string>
+</resources>

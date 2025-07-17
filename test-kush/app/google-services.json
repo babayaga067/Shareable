@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "648320684696",
+    "firebase_url": "https://test-project-15831-default-rtdb.firebaseio.com",
+    "project_id": "test-project-15831",
+    "storage_bucket": "test-project-15831.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648320684696:android:f35c7079cd8a0e5557f6ed",
+        "android_client_info": {
+          "package_name": "com.example.c36a"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCn2uhWBU45LydljQ36tBUWUW3jgzJxZWo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648320684696:android:0faf0ac5b99332bc57f6ed",
+        "android_client_info": {
+          "package_name": "com.example.hamro_media"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCn2uhWBU45LydljQ36tBUWUW3jgzJxZWo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648320684696:android:0072f498c9560b8857f6ed",
+        "android_client_info": {
+          "package_name": "com.example.sangeet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCn2uhWBU45LydljQ36tBUWUW3jgzJxZWo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
