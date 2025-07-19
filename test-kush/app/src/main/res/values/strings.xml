@@ -17,4 +17,5 @@
     <string name="title_activity_login_dactivity">LoginDActivity</string>
     <string name="title_activity_register_dactivity">RegisterDActivity</string>
     <string name="title_activity_edit_profile">EditProfileActivity</string>
+    <string name="title_activity_music_list_item">MusicListItem</string>
 </resources>

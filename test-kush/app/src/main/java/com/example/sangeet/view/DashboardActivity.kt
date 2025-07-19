@@ -2,6 +2,7 @@ package com.example.sangeet.view
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,13 +15,18 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import coil.compose.AsyncImage
 import com.example.sangeet.component.*
 import com.example.sangeet.model.MusicModel
 import com.example.sangeet.navigation.Screen
@@ -96,7 +102,7 @@ fun DashboardScreen(
     }
 
     val safeAllMusics = allMusics.filterNotNull()
-    val recentlyPlayed = safeAllMusics.takeLast(4)
+    val recentlyPlayed = safeAllMusics.takeLast(15)
     val recommended = safeAllMusics.take(10)
 
     if (hasError) {
@@ -185,9 +191,11 @@ fun DashboardScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Top Bar
                     item {
                         DashboardTopBar(
                             currentUser = currentUser,
@@ -213,7 +221,7 @@ fun DashboardScreen(
                         )
                     }
 
-                    // ✅ FIXED: QuickAccessSection using same navigation as sidebar
+                    // Quick Actions
                     item {
                         QuickAccessSection(
                             navController = navController,
@@ -221,10 +229,48 @@ fun DashboardScreen(
                         )
                     }
 
+                    // Recently Played Section
                     if (recentlyPlayed.isNotEmpty()) {
                         item {
                             Text(
                                 text = "Recently Played",
+                                color = Color.White,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // ✅ FIXED: Using route navigation instead of Intent
+                        items(recentlyPlayed) { music ->
+                            ExpandedMusicListItem(
+                                music = music,
+                                isFavorite = favoriteMusics.any { it.musicId == music.musicId },
+                                onMusicClick = { clickedMusic ->
+                                    // ✅ FIXED: Use route navigation instead of Intent
+                                    navController.navigate(Screen.PlayingNow(clickedMusic.musicId).route)
+                                },
+                                onToggleFavorite = { musicId ->
+                                    scope.launch {
+                                        try {
+                                            toggleFavorite(userId, musicId, favoriteViewModel, context)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Error toggling favorite: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                onAddToPlaylist = { music ->
+                                    selectedMusic = music
+                                    showDialog = true
+                                }
+                            )
+                        }
+                    }
+
+                    // Recommended Section
+                    if (recommended.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Recommended For You",
                                 color = Color.White,
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold
@@ -236,10 +282,14 @@ fun DashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(recentlyPlayed) { music ->
-                                    MusicCard(
+                                items(recommended.take(8)) { music ->
+                                    CompactMusicCard(
                                         music = music,
                                         isFavorite = favoriteMusics.any { it.musicId == music.musicId },
+                                        onMusicClick = { clickedMusic ->
+                                            // ✅ FIXED: Use route navigation instead of Intent
+                                            navController.navigate(Screen.PlayingNow(clickedMusic.musicId).route)
+                                        },
                                         onToggleFavorite = { musicId ->
                                             scope.launch {
                                                 try {
@@ -259,37 +309,7 @@ fun DashboardScreen(
                         }
                     }
 
-                    if (recommended.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "Recommended For You",
-                                color = Color.White,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        items(recommended.take(5)) { music ->
-                            MusicListItem(
-                                music = music,
-                                isFavorite = favoriteMusics.any { it.musicId == music.musicId },
-                                onToggleFavorite = { musicId ->
-                                    scope.launch {
-                                        try {
-                                            toggleFavorite(userId, musicId, favoriteViewModel, context)
-                                        } catch (e: Exception) {
-                                            Toast.makeText(context, "Error toggling favorite: ${e.message}", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                },
-                                onAddToPlaylist = { music ->
-                                    selectedMusic = music
-                                    showDialog = true
-                                }
-                            )
-                        }
-                    }
-
+                    // Empty State
                     if (safeAllMusics.isEmpty() && !isLoading) {
                         item {
                             EmptyStateMessage(
@@ -301,6 +321,7 @@ fun DashboardScreen(
                     }
                 }
 
+                // Dialog
                 if (showDialog && selectedMusic != null) {
                     AddToPlaylistDialog(
                         navController = navController,
@@ -336,14 +357,215 @@ fun DashboardScreen(
     }
 }
 
-// ✅ FIXED: QuickAccessSection using same navigation route as sidebar
+// ✅ Expanded Music List Item for Recently Played (Full Width)
+@Composable
+fun ExpandedMusicListItem(
+    music: MusicModel,
+    isFavorite: Boolean,
+    onMusicClick: (MusicModel) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onAddToPlaylist: (MusicModel) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onMusicClick(music) },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Black.copy(alpha = 0.3f)
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Album Art
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!music.imageUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = music.imageUrl,
+                        contentDescription = "Album Art",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.MusicNote,
+                        contentDescription = "Music",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Music Info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = music.musicName,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = music.artistName,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!music.genre.isNullOrEmpty()) {
+                    Text(
+                        text = music.genre,
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Action Buttons
+            IconButton(onClick = { onToggleFavorite(music.musicId) }) {
+                Icon(
+                    if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = "Favorite",
+                    tint = if (isFavorite) Color.Red else Color.White
+                )
+            }
+
+            IconButton(onClick = { onAddToPlaylist(music) }) {
+                Icon(
+                    Icons.Default.PlaylistAdd,
+                    contentDescription = "Add to Playlist",
+                    tint = Color.White
+                )
+            }
+
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = "Play",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+// ✅ Compact Music Card for Recommended Section
+@Composable
+fun CompactMusicCard(
+    music: MusicModel,
+    isFavorite: Boolean,
+    onMusicClick: (MusicModel) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onAddToPlaylist: (MusicModel) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(130.dp)
+            .height(180.dp)
+            .clickable { onMusicClick(music) },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Black.copy(alpha = 0.3f)
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Album Art
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!music.imageUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = music.imageUrl,
+                        contentDescription = "Album Art",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.MusicNote,
+                        contentDescription = "Music",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = music.musicName,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = music.artistName,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconButton(
+                    onClick = { onToggleFavorite(music.musicId) },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color.Red else Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { onAddToPlaylist(music) },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.PlaylistAdd,
+                        contentDescription = "Add to Playlist",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun QuickAccessSection(
     navController: NavController,
     userId: String
 ) {
-    val context = LocalContext.current
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -368,7 +590,6 @@ fun QuickAccessSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // ✅ FIXED: Using same navigation route as sidebar
                 Button(
                     onClick = {
                         navController.navigate(Screen.UploadMusic(userId).route)
@@ -500,161 +721,6 @@ fun BottomNavigationBar(navController: NavController) {
                 indicatorColor = Color.White.copy(alpha = 0.1f)
             )
         )
-    }
-}
-
-@Composable
-fun MusicCard(
-    music: MusicModel,
-    isFavorite: Boolean,
-    onToggleFavorite: (String) -> Unit,
-    onAddToPlaylist: (MusicModel) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .width(150.dp)
-            .height(200.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Black.copy(alpha = 0.3f)
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-                    .background(
-                        Color.Gray.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = "Music",
-                    tint = Color.White,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-
-            Text(
-                text = music.musicName,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-
-            Text(
-                text = music.artistName,
-                color = Color.White.copy(alpha = 0.7f),
-                maxLines = 1
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                IconButton(
-                    onClick = { onToggleFavorite(music.musicId) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) Color.Red else Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { onAddToPlaylist(music) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Default.PlaylistAdd,
-                        contentDescription = "Add to Playlist",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MusicListItem(
-    music: MusicModel,
-    isFavorite: Boolean,
-    onToggleFavorite: (String) -> Unit,
-    onAddToPlaylist: (MusicModel) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Black.copy(alpha = 0.3f)
-        ),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .background(
-                        Color.Gray.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = "Music",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = music.musicName,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = music.artistName,
-                    color = Color.White.copy(alpha = 0.7f)
-                )
-            }
-
-            IconButton(onClick = { onToggleFavorite(music.musicId) }) {
-                Icon(
-                    if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (isFavorite) Color.Red else Color.White
-                )
-            }
-
-            IconButton(onClick = { onAddToPlaylist(music) }) {
-                Icon(
-                    Icons.Default.PlaylistAdd,
-                    contentDescription = "Add to Playlist",
-                    tint = Color.White
-                )
-            }
-        }
     }
 }
 

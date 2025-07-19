@@ -20,13 +20,20 @@ fun AppNavGraph(navController: NavHostController) {
     val playlistViewModel = remember { PlaylistViewModel(PlaylistRepositoryImpl()) }
 
     NavHost(navController = navController, startDestination = Screen.Splash.route) {
+        // Auth
+        composable(Screen.Splash.route) {
+            SplashScreen(navController)
+        }
 
-        //  Auth
-        composable(Screen.Splash.route) { SplashScreen(navController) }
-        composable(Screen.Login.route) { LoginScreen(navController, userViewModel) }
-        composable(Screen.Register.route) { RegisterScreen(navController) }
+        composable(Screen.Login.route) {
+            LoginScreen(navController, userViewModel)
+        }
 
-        //  Dashboard & Menu
+        composable(Screen.Register.route) {
+            RegisterScreen(navController)
+        }
+
+        // Dashboard & Menu
         composable(Screen.Dashboard.route) {
             DashboardScreen(navController, userViewModel, musicViewModel, favoriteViewModel, playlistViewModel)
         }
@@ -35,51 +42,87 @@ fun AppNavGraph(navController: NavHostController) {
             MenuScreen(navController)
         }
 
-        //  Discovery
-        composable(Screen.Search.route) { SearchScreen(navController) }
-        composable(Screen.Library.route) { LibraryScreen() }
+        // Discovery
+        composable(Screen.Search.route) {
+            SearchScreen(navController)
+        }
 
-        //  Profile
-        composable(Screen.Profile.base, listOf(navArgument("userId") { type = NavType.StringType })) {
-            val userId = it.arguments?.getString("userId").orEmpty()
+        composable(Screen.Library.route) {
+            LibraryScreen()
+        }
+
+        // Profile
+        composable(
+            route = Screen.Profile.base,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             ProfileScreen(navController, userId, userViewModel)
         }
-        composable(Screen.EditProfile.base, listOf(navArgument("userId") { type = NavType.StringType })) {
-            val userId = it.arguments?.getString("userId").orEmpty()
+
+        composable(
+            route = Screen.EditProfile.base,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             EditProfileScreen(navController, userId)
         }
 
-        //  Music
-        composable(Screen.PlayingNow.base, listOf(navArgument("musicId") { type = NavType.StringType })) {
-            val musicId = it.arguments?.getString("musicId").orEmpty()
+        // ✅ FIXED: Music PlayingNow - This is the key fix for your Dashboard navigation
+        composable(
+            route = Screen.PlayingNow.base,
+            arguments = listOf(navArgument("musicId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val musicId = backStackEntry.arguments?.getString("musicId").orEmpty()
             PlayingNowScreen(musicId, musicViewModel, navController)
         }
-        composable(Screen.UploadMusic.base, listOf(navArgument("userId") { type = NavType.StringType })) {
-            val userId = it.arguments?.getString("userId").orEmpty()
+
+        composable(
+            route = Screen.UploadMusic.base,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             UploadMusicScreen(navController, userId, musicViewModel, userViewModel)
         }
 
-        //  Favorites
-        composable(Screen.Favorites.base, listOf(navArgument("userId") { type = NavType.StringType })) {
-            val userId = it.arguments?.getString("userId").orEmpty()
+        // Favorites
+        composable(
+            route = Screen.Favorites.base,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             FavoritesScreen(navController, userId)
         }
 
-        //  Playlists
-        composable(Screen.Playlists.base, listOf(navArgument("userId") { type = NavType.StringType })) {
-            val userId = it.arguments?.getString("userId").orEmpty()
+        // Playlists
+        composable(
+            route = Screen.Playlists.base,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             PlaylistScreen(navController, userId)
         }
-        composable(Screen.CreatePlaylist.base, listOf(navArgument("userId") { type = NavType.StringType })) { //optional changes
-            val userId = it.arguments?.getString("userId").orEmpty()
+
+        composable(
+            route = Screen.CreatePlaylist.base,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             CreatePlaylistScreen(navController, userId)
         }
 
-        //  Artists
-        composable(Screen.Artists.route) { ArtistListScreen(navController) }
+        // Artists
+        composable(Screen.Artists.route) {
+            ArtistListScreen(navController)
+        }
 
-        //  Info
-        composable(Screen.AboutUs.route) { AboutUsScreen(navController) }
-        composable(Screen.Settings.route) { SettingsScreen(navController) }
+        // Info
+        composable(Screen.AboutUs.route) {
+            AboutUsScreen(navController)
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(navController)
+        }
     }
 }
