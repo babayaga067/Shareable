@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -31,7 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.sangeet.component.AppBottomNavigationBar
 import com.example.sangeet.model.MusicModel
+import com.example.sangeet.navigation.Screen
 import com.example.sangeet.repository.FavoriteRepositoryImpl
 import com.example.sangeet.repository.MusicRepositoryImpl
 import com.example.sangeet.viewmodel.FavoriteViewModel
@@ -63,6 +66,7 @@ fun SearchScreen(navController: NavController? = null) {
 
     val allMusics by musicViewModel.allMusics.observeAsState(emptyList())
     val favoriteMusics by favoriteViewModel.favoriteMusics.observeAsState(emptyList())
+    val isLoading by musicViewModel.isLoading.observeAsState(false)
 
     var searchQuery by remember { mutableStateOf("") }
 
@@ -71,113 +75,211 @@ fun SearchScreen(navController: NavController? = null) {
         if (userId.isNotEmpty()) favoriteViewModel.getUserFavoriteMusics(userId)
     }
 
-    val filteredMusics = allMusics
-        .filterNotNull() // 🔐 removes null items
-        .filter {
-            it.musicName.contains(searchQuery, true) ||
-                    it.artistName.contains(searchQuery, true) ||
-                    it.genre.contains(searchQuery, true)
-        }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(gradientColors))
-            .padding(16.dp)
-    ) {
-        // 🧭 Top Bar
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            IconButton(
-                onClick = { navController?.navigateUp() ?: (context as? Activity)?.finish() }
-            ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+    val filteredMusics = if (searchQuery.isEmpty()) {
+        allMusics.filterNotNull()
+    } else {
+        allMusics
+            .filterNotNull()
+            .filter {
+                it.musicName.contains(searchQuery, true) ||
+                        it.artistName.contains(searchQuery, true) ||
+                        it.genre.contains(searchQuery, true)
             }
+    }
 
-            Spacer(modifier = Modifier.weight(1f))
-            Text("Search", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(modifier = Modifier.weight(1f))
-
-            IconButton(onClick = { /* Future profile action */ }) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.2f))
-                        .padding(4.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 🔍 Search Input
-        TextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Search here", color = Color.LightGray) },
+    Scaffold(
+        bottomBar = {
+            AppBottomNavigationBar(
+                navController = navController,
+                currentRoute = "search"
+            )
+        },
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.White.copy(alpha = 0.2f),
-                    RoundedCornerShape(10.dp)
-                ),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = Color.White,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
-            ),
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 🎶 Section Header
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Songs For You", fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = { /* Future filter/sort */ }) {
-                Icon(
-                    Icons.Default.ArrowForward,
-                    contentDescription = "Sort",
-                    tint = Color.White
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 🎧 Results Display
-        if (filteredMusics.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No music found", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
+                .fillMaxSize()
+                .background(Brush.verticalGradient(gradientColors))
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            // Top Bar
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(filteredMusics) { music ->
-                    val isFavorite = favoriteMusics.any { it.musicId == music.musicId }
-                    MusicItem(
-                        music = music,
-                        isFavorite = isFavorite,
-                        onHeartClick = {
-                            favoriteViewModel.toggleFavorite(
-                                userId,
-                                music.musicId
-                            ) { success, msg ->
-                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                if (success) favoriteViewModel.getUserFavoriteMusics(userId)
+                IconButton(
+                    onClick = {
+                        navController?.navigateUp() ?: (context as? Activity)?.finish()
+                    }
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    "Search",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(onClick = { /* Future profile action */ }) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = "Profile",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .padding(4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Search Input
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search songs, artists, genres...", color = Color.LightGray) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.White.copy(alpha = 0.2f),
+                        RoundedCornerShape(10.dp)
+                    ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = Color.White,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search),
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                        }
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Section Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (searchQuery.isEmpty()) "All Songs" else "Search Results",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (filteredMusics.isNotEmpty()) {
+                    Text(
+                        "${filteredMusics.size} songs",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Results Display
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color.White)
+                        }
+                    }
+
+                    filteredMusics.isEmpty() && searchQuery.isNotEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.SearchOff,
+                                    contentDescription = "No results",
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    "No music found for \"$searchQuery\"",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "Try searching with different keywords",
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    fontSize = 12.sp
+                                )
                             }
                         }
-                    )
+                    }
+
+                    filteredMusics.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No music available",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 16.dp)
+                        ) {
+                            items(filteredMusics) { music ->
+                                val isFavorite = favoriteMusics.any { it.musicId == music.musicId }
+                                SearchMusicItem(
+                                    music = music,
+                                    isFavorite = isFavorite,
+                                    onMusicClick = {
+                                        // Navigate to PlayingNow screen
+                                        navController?.navigate(Screen.PlayingNow(music.musicId).route)
+                                    },
+                                    onHeartClick = {
+                                        favoriteViewModel.toggleFavorite(
+                                            userId,
+                                            music.musicId
+                                        ) { success, msg ->
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                            if (success) favoriteViewModel.getUserFavoriteMusics(userId)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -185,52 +287,95 @@ fun SearchScreen(navController: NavController? = null) {
 }
 
 @Composable
-fun MusicItem(
+fun SearchMusicItem(
     music: MusicModel,
     isFavorite: Boolean,
+    onMusicClick: () -> Unit,
     onHeartClick: () -> Unit
-    ) {
-    Row(
+) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .clickable { onMusicClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.1f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
-            ) {
-                AsyncImage(
-                    model = if (music.imageUrl.startsWith("/")) File(music.imageUrl) else music.imageUrl.ifEmpty { "https://via.placeholder.com/50" },
-                    contentDescription = music.musicName,
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
+        ) {
+            // Album Art
+            AsyncImage(
+                model = when {
+                    music.imageUrl.startsWith("/") -> File(music.imageUrl)
+                    music.imageUrl.isNotEmpty() -> music.imageUrl
+                    else -> "https://via.placeholder.com/60"
+                },
+                contentDescription = music.musicName,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Music Info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = music.musicName,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1
                 )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = music.artistName.ifEmpty { "Unknown Artist" },
+                    fontSize = 14.sp,
+                    color = Color.LightGray,
+                    maxLines = 1
+                )
+                if (music.genre.isNotEmpty()) {
                     Text(
-                        music.musicName,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        music.artistName.ifEmpty { "Unknown Artist" },
+                        text = music.genre,
                         fontSize = 12.sp,
-                        color = Color.LightGray
-                    )
-                    if (music.genre.isNotEmpty()) {
-                        Text(music.genre, fontSize = 10.sp, color = Color.Gray)
-                    }
-                }
-
-                IconButton(onClick = onHeartClick) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) Color(0xFFE91E63) else Color.LightGray
+                        color = Color.Gray,
+                        maxLines = 1
                     )
                 }
             }
-        }
 
+            // Play button
+            IconButton(
+                onClick = onMusicClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color(0xFFE91E63).copy(alpha = 0.8f), CircleShape)
+            ) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Favorite button
+            IconButton(onClick = onHeartClick) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = "Favorite",
+                    tint = if (isFavorite) Color(0xFFE91E63) else Color.LightGray,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}

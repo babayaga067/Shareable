@@ -1,6 +1,7 @@
 package com.example.sangeet.view
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,10 +30,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.sangeet.component.AppBottomNavigationBar
+import com.example.sangeet.component.MusicListItem
 import com.example.sangeet.model.MusicModel
+import com.example.sangeet.navigation.Screen
+import com.example.sangeet.repository.FavoriteRepositoryImpl
 import com.example.sangeet.repository.MusicRepositoryImpl
+import com.example.sangeet.repository.PlaylistRepositoryImpl
 import com.example.sangeet.repository.UserRepositoryImpl
+import com.example.sangeet.viewmodel.FavoriteViewModel
 import com.example.sangeet.viewmodel.MusicViewModel
+import com.example.sangeet.viewmodel.PlaylistViewModel
 import com.example.sangeet.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
 
@@ -50,17 +58,25 @@ class LibraryActivity : ComponentActivity() {
 fun LibraryScreen(navController: NavController? = null) {
     val userRepository = UserRepositoryImpl()
     val musicRepository = MusicRepositoryImpl()
+    val favoriteRepository = FavoriteRepositoryImpl()
+    val playlistRepository = PlaylistRepositoryImpl()
+
     val userViewModel = remember { UserViewModel(userRepository) }
     val musicViewModel = remember { MusicViewModel(musicRepository) }
+    val favoriteViewModel = remember { FavoriteViewModel(favoriteRepository) }
+    val playlistViewModel = remember { PlaylistViewModel(playlistRepository) }
 
     val currentUser by userViewModel.user.observeAsState()
     val recentlyPlayed by musicViewModel.allMusics.observeAsState(emptyList())
+    val favoriteMusics by favoriteViewModel.favoriteMusics.observeAsState(emptyList())
+    val context = LocalContext.current
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "user123"
 
     LaunchedEffect(userId) {
         if (userId != "user123") {
             userViewModel.getUserById(userId)
+            favoriteViewModel.getUserFavoriteMusics(userId)
         }
         musicViewModel.getAllMusics()
     }
@@ -70,7 +86,12 @@ fun LibraryScreen(navController: NavController? = null) {
     )
 
     Scaffold(
-        bottomBar = { BottomNavigationBar() },
+        bottomBar = {
+            AppBottomNavigationBar(
+                navController = navController,
+                currentRoute = "library"
+            )
+        },
         containerColor = Color.Transparent
     ) { paddingValues ->
         Box(
@@ -84,31 +105,41 @@ fun LibraryScreen(navController: NavController? = null) {
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
+                // Greeting Section
                 GreetingSection(currentUser = currentUser)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Library Cards Section
                 Text("Your Library", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     LibraryCard(
                         icon = Icons.Default.Favorite,
                         title = "Favourite",
-                        subtitle = "View favorites"
+                        subtitle = "Your loved songs collection",
+                        modifier = Modifier.weight(1f)
                     ) {
-                        navController?.navigate("favorites/$userId")
+                        navController?.navigate(Screen.Favorites(userId).route)
                     }
+
                     LibraryCard(
                         icon = Icons.Default.PlaylistPlay,
                         title = "Playlists",
-                        subtitle = "View playlists"
+                        subtitle = "Custom music collections",
+                        modifier = Modifier.weight(1f)
                     ) {
-                        navController?.navigate("playlists/$userId")
+                        navController?.navigate(Screen.Playlists(userId).route)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Recently Played Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -120,18 +151,62 @@ fun LibraryScreen(navController: NavController? = null) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (recentlyPlayed.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "Recently played songs will appear here",
-                            color = Color.White.copy(0.7f),
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                        items(recentlyPlayed.filterNotNull().takeLast(10).reversed()) { music ->
-                            SongItem(music)
+                // Recently Played Content - This should fill remaining space
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f) // This makes it expand to fill remaining space
+                ) {
+                    if (recentlyPlayed.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Recently played songs will appear here",
+                                color = Color.White.copy(0.7f),
+                                fontSize = 14.sp
+                            )
+                        }
+                    } else {
+                        // Remove height constraint and let it fill available space
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 16.dp)
+                        ) {
+                            items(recentlyPlayed.filterNotNull().takeLast(20).reversed()) { music ->
+                                val isFavorite = favoriteMusics.any { it.musicId == music.musicId }
+
+                                MusicListItem(
+                                    music = music,
+                                    isFavorite = isFavorite,
+                                    onToggleFavorite = {
+                                        // Toggle favorite functionality
+                                        favoriteViewModel.toggleFavorite(
+                                            userId,
+                                            music.musicId
+                                        ) { success, message ->
+                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                            if (success) {
+                                                favoriteViewModel.getUserFavoriteMusics(userId)
+                                            }
+                                        }
+                                    },
+                                    onAddToPlaylist = {
+                                        // Navigate to playlist selection or show playlist selection dialog
+                                        navController?.navigate(Screen.Playlists(userId).route)
+                                        Toast.makeText(
+                                            context,
+                                            "Adding ${music.musicName} to playlist",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    onNavigate = {
+                                        navController?.navigate(Screen.PlayingNow(music.musicId).route)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -170,75 +245,60 @@ fun GreetingSection(currentUser: com.example.sangeet.model.UserModel?) {
 }
 
 @Composable
-fun LibraryCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+fun LibraryCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier
-            .height(80.dp)
+        modifier = modifier
+            .height(110.dp) // Increased height for better subtitle visibility
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0x40FFFFFF))
+        colors = CardDefaults.cardColors(containerColor = Color(0x40FFFFFF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp), // Increased padding for better spacing
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(icon, contentDescription = "$title icon", tint = Color.White)
-            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-        }
-    }
-}
+            // Icon at the top
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = "$title icon",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp) // Slightly larger icon
+                )
+            }
 
-@Composable
-fun SongItem(music: MusicModel) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(music.imageUrl.ifEmpty { "https://via.placeholder.com/50" })
-                .crossfade(true)
-                .build(),
-            contentDescription = music.musicName,
-            modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(8.dp))
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(music.musicName, color = Color.White, fontWeight = FontWeight.Medium)
-            Text(music.artistName.ifEmpty { "Unknown Artist" }, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+            // Title and subtitle at the bottom
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2 // Allow for longer subtitles
+                )
+            }
         }
-        Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = Color.White)
-    }
-}
-
-@Composable
-fun BottomNavigationBar() {
-    NavigationBar(
-        containerColor = Color(0xFF3D0E5C),
-        contentColor = Color.White
-    ) {
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.Home, contentDescription = null) },
-            label = { Text("Home") },
-            selected = false,
-            onClick = {}
-        )
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.Search, contentDescription = null) },
-            label = { Text("Search") },
-            selected = false,
-            onClick = {}
-        )
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
-            label = { Text("Your Library") },
-            selected = true,
-            onClick = {}
-        )
     }
 }

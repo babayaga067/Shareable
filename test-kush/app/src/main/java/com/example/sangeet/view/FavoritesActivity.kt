@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.sangeet.navigation.Screen
 import com.example.sangeet.repository.FavoriteRepositoryImpl
 import com.example.sangeet.viewmodel.FavoriteViewModel
 import java.io.File
@@ -97,7 +98,8 @@ fun FavoritesScreen(navController: NavController, userId: String) {
                                 music = music,
                                 userId = userId,
                                 onPlay = {
-                                    Toast.makeText(context, "Playing ${music.musicName}", Toast.LENGTH_SHORT).show()
+                                    // Navigate to PlayingNow screen with the music ID
+                                    navController.navigate(Screen.PlayingNow(music.musicId).route)
                                 },
                                 onRemove = { musicId ->
                                     favoriteViewModel.removeFromFavorites(userId, musicId) { success, message ->
@@ -134,42 +136,71 @@ fun FavoriteCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Album art with fallback
             AsyncImage(
-                model = if (music.imageUrl.isNotEmpty()) {
-                    if (music.imageUrl.startsWith("/")) File(music.imageUrl) else music.imageUrl
-                } else {
-                    "https://via.placeholder.com/60"
+                model = when {
+                    music.imageUrl.isNotEmpty() && music.imageUrl.startsWith("/") -> File(music.imageUrl)
+                    music.imageUrl.isNotEmpty() -> music.imageUrl
+                    else -> null
                 },
                 contentDescription = "${music.musicName} album art",
                 modifier = Modifier
                     .size(60.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Gray.copy(alpha = 0.3f)),
                 contentScale = ContentScale.Crop
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(music.musicName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(music.artistName.ifEmpty { "Unknown Artist" }, color = Color.Gray, fontSize = 14.sp)
+                Text(
+                    text = music.musicName.takeIf { it.isNotEmpty() } ?: "Unknown Song",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    maxLines = 1
+                )
+                Text(
+                    text = music.artistName.takeIf { it.isNotEmpty() } ?: "Unknown Artist",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    maxLines = 1
+                )
                 if (music.genre.isNotEmpty()) {
-                    Text(music.genre, color = Color.Gray, fontSize = 12.sp)
+                    Text(
+                        text = music.genre,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
             }
 
+            // Play button
             IconButton(
                 onClick = onPlay,
                 modifier = Modifier
                     .size(40.dp)
                     .background(Color(0xFFE91E63), CircleShape)
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
+            // Remove from favorites button
             IconButton(onClick = { onRemove(music.musicId) }) {
-                Icon(Icons.Default.Favorite, contentDescription = "Remove from Favorites", tint = Color(0xFFE91E63))
+                Icon(
+                    Icons.Default.Favorite,
+                    contentDescription = "Remove from Favorites",
+                    tint = Color(0xFFE91E63)
+                )
             }
         }
     }

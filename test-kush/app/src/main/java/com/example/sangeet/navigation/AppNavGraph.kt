@@ -47,8 +47,9 @@ fun AppNavGraph(navController: NavHostController) {
             SearchScreen(navController)
         }
 
+        // FIXED: Pass navController to LibraryScreen
         composable(Screen.Library.route) {
-            LibraryScreen()
+            LibraryScreen(navController)
         }
 
         // Profile
@@ -111,7 +112,7 @@ fun AppNavGraph(navController: NavHostController) {
             CreatePlaylistScreen(navController, userId)
         }
 
-        // NEW: Playlist Detail Screen
+        // Playlist Detail Screen
         composable(
             route = Screen.PlaylistDetail.base,
             arguments = listOf(
