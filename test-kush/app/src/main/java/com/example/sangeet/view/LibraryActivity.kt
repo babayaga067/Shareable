@@ -28,11 +28,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.sangeet.component.AppBottomNavigationBar
 import com.example.sangeet.component.MusicListItem
 import com.example.sangeet.model.MusicModel
+import com.example.sangeet.model.PlaylistModel
 import com.example.sangeet.navigation.Screen
 import com.example.sangeet.repository.FavoriteRepositoryImpl
 import com.example.sangeet.repository.MusicRepositoryImpl
@@ -69,14 +71,20 @@ fun LibraryScreen(navController: NavController? = null) {
     val currentUser by userViewModel.user.observeAsState()
     val recentlyPlayed by musicViewModel.allMusics.observeAsState(emptyList())
     val favoriteMusics by favoriteViewModel.favoriteMusics.observeAsState(emptyList())
+    val userPlaylists by playlistViewModel.userPlaylists.observeAsState(emptyList())
     val context = LocalContext.current
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "user123"
+
+    // State for playlist selection dialog
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+    var selectedMusic by remember { mutableStateOf<MusicModel?>(null) }
 
     LaunchedEffect(userId) {
         if (userId != "user123") {
             userViewModel.getUserById(userId)
             favoriteViewModel.getUserFavoriteMusics(userId)
+            playlistViewModel.getUserPlaylists(userId)
         }
         musicViewModel.getAllMusics()
     }
@@ -84,6 +92,33 @@ fun LibraryScreen(navController: NavController? = null) {
     val gradientBrush = Brush.verticalGradient(
         colors = listOf(Color(0xFF5B0E9C), Color(0xFF27005D))
     )
+
+    // Playlist selection dialog
+    if (showPlaylistDialog && selectedMusic != null) {
+        PlaylistSelectionDialog(
+            music = selectedMusic!!,
+            playlists = userPlaylists,
+            onDismiss = {
+                showPlaylistDialog = false
+                selectedMusic = null
+            },
+            onPlaylistSelected = { playlist ->
+                playlistViewModel.addMusicToPlaylist(
+                    playlist.playlistId,
+                    selectedMusic!!.musicId
+                ) { success, message ->
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+                showPlaylistDialog = false
+                selectedMusic = null
+            },
+            onCreateNewPlaylist = {
+                navController?.navigate(Screen.CreatePlaylist(userId).route)
+                showPlaylistDialog = false
+                selectedMusic = null
+            }
+        )
+    }
 
     Scaffold(
         bottomBar = {
@@ -194,13 +229,9 @@ fun LibraryScreen(navController: NavController? = null) {
                                         }
                                     },
                                     onAddToPlaylist = {
-                                        // Navigate to playlist selection or show playlist selection dialog
-                                        navController?.navigate(Screen.Playlists(userId).route)
-                                        Toast.makeText(
-                                            context,
-                                            "Adding ${music.musicName} to playlist",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        // Show playlist selection dialog instead of navigating
+                                        selectedMusic = music
+                                        showPlaylistDialog = true
                                     },
                                     onNavigate = {
                                         navController?.navigate(Screen.PlayingNow(music.musicId).route)
@@ -211,6 +242,198 @@ fun LibraryScreen(navController: NavController? = null) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PlaylistSelectionDialog(
+    music: MusicModel,
+    playlists: List<PlaylistModel>,
+    onDismiss: () -> Unit,
+    onPlaylistSelected: (PlaylistModel) -> Unit,
+    onCreateNewPlaylist: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 200.dp, max = 400.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D1B4E))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Dialog Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Add to Playlist",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Song info
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        model = music.imageUrl.ifEmpty { "https://via.placeholder.com/40" },
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            music.musicName,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                        Text(
+                            music.artistName.ifEmpty { "Unknown Artist" },
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Create new playlist option
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onCreateNewPlaylist() },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF4A2C7A)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            tint = Color(0xFFE91E63),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Create New Playlist",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Playlists list
+                if (playlists.isNotEmpty()) {
+                    Text(
+                        "Your Playlists",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(playlists) { playlist ->
+                            PlaylistItem(
+                                playlist = playlist,
+                                onClick = { onPlaylistSelected(playlist) }
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No playlists yet. Create your first playlist!",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaylistItem(
+    playlist: PlaylistModel,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF3A1F5C)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = if (playlist.imageUrl.isNotEmpty()) playlist.imageUrl else "https://via.placeholder.com/40",
+                contentDescription = null,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    playlist.playlistName,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+                Text(
+                    "${playlist.musicIds?.size ?: 0} songs",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+            Icon(
+                Icons.Default.PlaylistAdd,
+                contentDescription = null,
+                tint = Color(0xFFE91E63),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
