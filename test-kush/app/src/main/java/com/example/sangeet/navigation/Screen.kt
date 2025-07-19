@@ -30,7 +30,7 @@ sealed class Screen(val route: String) {
         }
     }
 
-    // ✅ CRITICAL: Music Playback & Upload
+    // Music Playback & Upload
     data class PlayingNow(val musicId: String) : Screen("playing_now/$musicId") {
         companion object {
             const val base = "playing_now/{musicId}"
@@ -53,6 +53,13 @@ sealed class Screen(val route: String) {
     data class Playlists(val userId: String) : Screen("playlists/$userId") {
         companion object {
             const val base = "playlists/{userId}"
+        }
+    }
+
+    // NEW: Playlist Detail Screen
+    data class PlaylistDetail(val playlistId: String, val userId: String) : Screen("playlist_detail/$playlistId/$userId") {
+        companion object {
+            const val base = "playlist_detail/{playlistId}/{userId}"
         }
     }
 

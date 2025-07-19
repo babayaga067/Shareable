@@ -30,6 +30,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.example.sangeet.model.PlaylistModel
+import com.example.sangeet.navigation.Screen
 import com.example.sangeet.repository.PlaylistRepositoryImpl
 import com.example.sangeet.viewmodel.PlaylistViewModel
 import java.io.File
@@ -69,7 +70,9 @@ fun PlaylistScreen(navController: NavController, userId: String) {
     val gradient = Brush.verticalGradient(listOf(Color(0xFF4A004A), Color(0xFF1C0038)))
 
     LaunchedEffect(userId) {
-        playlistViewModel.getUserPlaylists(userId)
+        if (userId.isNotEmpty()) {
+            playlistViewModel.getUserPlaylists(userId)
+        }
     }
 
     Scaffold(
@@ -78,16 +81,14 @@ fun PlaylistScreen(navController: NavController, userId: String) {
                 title = { Text("My Playlists", color = Color.White, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (!navController.popBackStack()) {
-                            navController.navigate("dashboard")
-                        }
+                        navController.popBackStack()
                     }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
                     IconButton(onClick = {
-                        navController.navigate("create_playlist/$userId")
+                        navController.navigate(Screen.CreatePlaylist(userId).route)
                     }) {
                         Icon(Icons.Default.Add, contentDescription = "Create Playlist", tint = Color.White)
                     }
@@ -119,7 +120,7 @@ fun PlaylistScreen(navController: NavController, userId: String) {
                             Text("Create your first playlist!", color = Color.Gray, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(onClick = {
-                                navController.navigate("create_playlist/$userId")
+                                navController.navigate(Screen.CreatePlaylist(userId).route)
                             }) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -139,7 +140,10 @@ fun PlaylistScreen(navController: NavController, userId: String) {
                             PlaylistCard(
                                 playlist = playlist,
                                 onClick = {
-                                    navController.navigate("playlist_detail/${playlist.playlistId}")
+                                    // Navigate using proper Compose Navigation
+                                    navController.navigate(
+                                        Screen.PlaylistDetail(playlist.playlistId, userId).route
+                                    )
                                 },
                                 onDeleteClick = {
                                     playlistToDelete = playlist
@@ -151,38 +155,41 @@ fun PlaylistScreen(navController: NavController, userId: String) {
                 }
             }
 
-            playlistToDelete?.let { playlist ->
-                if (showDeleteDialog) {
-                    AlertDialog(
-                        onDismissRequest = {
-                            showDeleteDialog = false
-                            playlistToDelete = null
-                        },
-                        title = { Text("Delete Playlist", color = Color.White) },
-                        text = { Text("Are you sure you want to delete \"${playlist.playlistName}\"?", color = Color.Gray) },
-                        confirmButton = {
-                            TextButton(onClick = {
+            // Delete confirmation dialog
+            if (showDeleteDialog && playlistToDelete != null) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showDeleteDialog = false
+                        playlistToDelete = null
+                    },
+                    title = { Text("Delete Playlist", color = Color.White) },
+                    text = { Text("Are you sure you want to delete \"${playlistToDelete?.playlistName}\"?", color = Color.Gray) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            playlistToDelete?.let { playlist ->
                                 playlistViewModel.deletePlaylist(playlist.playlistId, userId) { success, message ->
                                     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                    if (success) playlistViewModel.getUserPlaylists(userId)
+                                    if (success) {
+                                        playlistViewModel.getUserPlaylists(userId)
+                                    }
                                 }
-                                playlistToDelete = null
-                                showDeleteDialog = false
-                            }) {
-                                Text("Delete", color = Color(0xFFE91E63))
                             }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                playlistToDelete = null
-                                showDeleteDialog = false
-                            }) {
-                                Text("Cancel", color = Color.Gray)
-                            }
-                        },
-                        containerColor = Color.Black.copy(alpha = 0.9f)
-                    )
-                }
+                            playlistToDelete = null
+                            showDeleteDialog = false
+                        }) {
+                            Text("Delete", color = Color(0xFFE91E63))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            playlistToDelete = null
+                            showDeleteDialog = false
+                        }) {
+                            Text("Cancel", color = Color.Gray)
+                        }
+                    },
+                    containerColor = Color.Black.copy(alpha = 0.9f)
+                )
             }
         }
     }
@@ -208,21 +215,43 @@ fun PlaylistCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = if (playlist.imageUrl.startsWith("/")) File(playlist.imageUrl) else playlist.imageUrl,
-                contentDescription = null,
+                model = if (playlist.imageUrl.isNotEmpty() && playlist.imageUrl.startsWith("/")) {
+                    File(playlist.imageUrl)
+                } else if (playlist.imageUrl.isNotEmpty()) {
+                    playlist.imageUrl
+                } else {
+                    null
+                },
+                contentDescription = "Playlist cover",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(60.dp)
                     .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Gray.copy(alpha = 0.3f))
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(playlist.playlistName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("${playlist.musicIds.size} songs", color = Color.Gray, fontSize = 14.sp)
+                Text(
+                    text = playlist.playlistName.takeIf { it.isNotEmpty() } ?: "Untitled Playlist",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Text(
+                    text = "${playlist.musicIds?.size ?: 0} songs",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
                 if (playlist.description.isNotBlank()) {
-                    Text(playlist.description, color = Color.Gray, fontSize = 12.sp, maxLines = 1)
+                    Text(
+                        text = playlist.description,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
             }
 

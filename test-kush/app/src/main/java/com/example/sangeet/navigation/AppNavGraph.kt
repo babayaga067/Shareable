@@ -68,7 +68,7 @@ fun AppNavGraph(navController: NavHostController) {
             EditProfileScreen(navController, userId)
         }
 
-        // ✅ FIXED: Music PlayingNow - This is the key fix for your Dashboard navigation
+        // Music PlayingNow
         composable(
             route = Screen.PlayingNow.base,
             arguments = listOf(navArgument("musicId") { type = NavType.StringType })
@@ -109,6 +109,19 @@ fun AppNavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             CreatePlaylistScreen(navController, userId)
+        }
+
+        // NEW: Playlist Detail Screen
+        composable(
+            route = Screen.PlaylistDetail.base,
+            arguments = listOf(
+                navArgument("playlistId") { type = NavType.StringType },
+                navArgument("userId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val playlistId = backStackEntry.arguments?.getString("playlistId").orEmpty()
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
+            PlaylistDetailScreen(navController, playlistId, userId, playlistViewModel, musicViewModel)
         }
 
         // Artists

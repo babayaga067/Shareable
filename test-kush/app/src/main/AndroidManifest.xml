@@ -18,6 +18,11 @@
         android:theme="@style/Theme.Sangeet"
         tools:targetApi="31">
         <activity
+            android:name=".view.PlaylistDetailActivity"
+            android:exported="false"
+            android:label="@string/title_activity_playlist_detail"
+            android:theme="@style/Theme.Sangeet" />
+        <activity
             android:name=".component.MusicListItem"
             android:exported="false"
             android:label="@string/title_activity_music_list_item"
